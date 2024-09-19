@@ -63,7 +63,7 @@ num_numerical_non_integer <- num_numerical - num_integers
 cat("Number of factor variables:", num_factors, "\n")
 cat("Number of integer variables:", num_integers, "\n")
 cat("Number of numerical (but not integer) variables:", num_numerical_non_integer, "\n")
-cat("Number of character variables:", num_characters, "\n")
+cat("Number of character variables:", num_characters, "
 
 ```
 
