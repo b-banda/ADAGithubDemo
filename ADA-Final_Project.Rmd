@@ -1,0 +1,565 @@
+---
+title: "ADA Final Project"
+author: "Bernard Banda"
+date: "2024-12-02"
+output:
+  html_document: default
+  pdf_document:
+    keep_tex: true
+always_allow_html: true
+---
+
+**TITLE:** Association Between Housing Instability and Non-Specific Psychological Distress Among Adults in New York City During 2020.
+
+1.  **Background**
+
+Psychological distress, defined as a state of emotional suffering often characterized by symptoms of depression, anxiety, and general mental unease, has emerged as a significant public health concern.^1^ The COVID-19 pandemic worsened existing mental health conditions, leading to a sharp increase in reported cases of psychological distress worldwide^2^. This distress has been linked to various socio-environmental stressors, including economic insecurity, social isolation, and traumatic experiences.^3^ Studies have indicated that psychological distress increases the likelihood of developing chronic illnesses such as cardiovascular disease and diabetes, as well as mental health conditions like depression and anxiety​.^2,4^
+
+Although substantial evidence links psychological distress to adverse health outcomes, there is limited research on how housing instability worsen this distress, particularly in urban areas like New York City. New York City has long faced housing problems due to high living costs, income inequality, and a shortage of homes. In 2022, 38.9% of New York households spent 30% or more of their income on housing, ranking the state third highest nationally in housing cost burden.^5^ The COVID-19 pandemic disproportionately affected those already at risk of housing instability, such as low-income renters, further compounding their mental health challenges^2,6,7^. This study aims to investigate the association between housing instability and non-specific psychological distress among adults in New York City during 2020, a period marked by critical economic and social disruption.^7^ Understanding this relationship will help inform policies aimed at addressing mental health disparities worsened by housing insecurity.
+
+2.  **Objectives**
+
+Below are the objectives of this study.
+
+**2.1 Primary objectives:**
+
+-   Determine whether housing instability is associated with non-specific psychological distress among adults aged 18 and older in NYC during 2020.
+
+**2.2 Secondary Objectives:**
+
+-   Assess whether income level modifies the association between housing instability and psychological distress.
+
+**3. Study Approach**
+
+**3.1 Data Source**
+
+This study will use data from the Community Health Survey (CHS) 2020, an annual cross-sectional survey conducted by the New York City Department of Health and Mental Hygiene. This dataset includes detailed information on health behaviors, outcomes, and social determinants of health among NYC residents. The CHS 2020 dataset is ideal, as it includes key variables like delayed rent payment (a proxy for housing instability) and non-specific psychological distress. The data is publicly available and can be accessed from the NYC Community Health Survey website below.
+
+Link: <https://www.nyc.gov/assets/doh/downloads/sas/episrv/chs2020_public.sas7bda>)
+
+**3.2 Study Population**
+
+The study will focus on adults aged 18 and older living in New York City during 2020. Inclusion criteria will consist of respondents who provided complete data on key variables, including housing instability, psychological distress.
+
+**3.3 Variables**
+
+Below are the variables that will be used in this study.
+
+-   **Dependent Variable**: **Non-specific psychological distress** (nspd), measured as a binary variable (1 = Yes, 2 = No), indicating whether respondents experienced psychological distress in the past 30 days.
+
+```         
+-   **Question**: This is a calculated variable from responses to Q5.1- Q5.6 in the dataset.
+```
+
+-   **Independent Variable**: **housing instability** (delaypayrent), a binary variable representing whether respondents delayed or were unable to pay rent/mortgage in the past 12 months (1 = Yes, 2 = No).
+
+    -   **Question**: *During the past 12 months, was there any month when you delayed paying or were not able to pay your mortgage or rent?*
+
+**Other Variables**: Other key variables include:
+
+-   **Employment status** (emp3) : Categorized as employed, unemployed, or not in the labor force.
+
+-   **Health insurance status** (insuredgateway20): Binary variable indicating whether the respondent has any form of health insurance.
+
+**Confounders**
+
+-   **Income level** (imputed_povgroup3): Categorized by percentage of the Federal Poverty Level.
+
+-   **Age group** (agegroup6): Categorical variable representing the respondent’s age group.
+
+-   **Variable Recoding**: Recoding variables to start from '0' as the lowest value helps to standardize the analysis and prevent referencing confusion, especially when interpreting regression outputs. Missing values on socio-demographic factors will be managed either through imputation methods or exclusion from specific analyses if appropriate.
+
+| Original Header     | Suggested Header                      | Description                                            |
+|---------------------|---------------------------------------|--------------------------------------------------------|
+| `nspd`              | `non_specific_psychological_distress` | Indicates presence of psychological distress (Yes/No). |
+| `delaypayrent`      | `housing_instability`                 | Indicates if rent/mortgage was delayed.                |
+| `imputed_povgroup3` | `income_level`                        | Income category based on Federal Poverty Level (FPL).  |
+| `agegroup6`         | `age_group`                           | Age group of the respondent.                           |
+| `emp3`              | `employment_status`                   | Employment status (e.g., Employed, Unemployed).        |
+| `insuredgateway20`  | `health_insurance_status`             | Indicates health insurance coverage (Yes/No).          |
+
+DAG
+
+**3.4 Reproducibility Plan**
+
+All data cleaning, processing, and analysis steps will be documented using R Markdown files. Code and documentation will be stored in a GitHub repository with version control, allowing for complete transparency and reproducibility. Additionally, a readme file including recoding and variable handling, will be provided to allow other researchers to replicate the findings.
+
+**3.5 Statistical analysis**
+
+Data analysis will be performed using R software (version 4.4.0). Descriptive statistics will be summarized in Table 1. Logistic regression will be used to examine the association between housing instability (independent variable) and non-specific psychological distress (dependent variable), as both variables are binary. This model will estimate the odds ratio of experiencing psychological distress among individuals facing housing instability compared to those without instability.
+
+Confounding variables such as income, age, employment status, and health insurance will be controlled for by including them in the model as covariates. To test for effect modification, interaction terms between housing instability and factors like income or employment will be assessed.
+
+Model assumptions, including linearity in the logit for continuous covariates and absence of multicollinearity, will be tested. Multicollinearity will be evaluated using the variance inflation factor (VIF), with variables exceeding a VIF of 5 considered for exclusion or transformation. The goodness of fit for the model will be checked using the Hosmer-Lemeshow test.
+
+Codebook ([Here](https://www.nyc.gov/assets/doh/downloads/pdf/episrv/chs2020-codebook.pdf))
+
+### Load required libraries using pacman
+
+```{r}
+
+# pacman simplifies the loading and installation of packages
+pacman::p_load(odds.n.ends,tidyverse,haven, janitor, knitr, car, broom, psych, table1, DiagrammeR,blorr, rsvg,mice,naniar,jtools,lmtest,rmarkdown,tinytex)
+```
+
+### Data Analysis
+
+```{r}
+
+# Specify the URL of the SAS file
+url <- "https://www.nyc.gov/assets/doh/downloads/sas/episrv/chs2020_public.sas7bdat"
+
+# Specify the local path where the file will be saved
+local_file <- "chs2020_public.sas7bdat"
+
+# Download the SAS file
+download.file(url, destfile = local_file, mode = "wb")  # mode = "wb" ensures binary mode for downloading
+
+# Load the SAS file into R
+chs2020 <- read_sas(local_file)
+
+
+```
+
+-   Data Cleaning and Resolving Missing Data
+
+```{r}
+# Select variables of interest
+chs_data <- chs2020 %>%
+  select(nspd, delaypayrent, imputed_povgroup3, agegroup6, emp3, insuredgateway20)
+
+# View the first few rows
+head(chs_data)
+```
+
+**Renaming the variables**
+
+```{r}
+
+# Rename variables to snake_case
+chs_data <- chs_data %>%
+  rename(
+    non_specific_psychological_distress = nspd,      # Dependent variable
+    housing_instability = delaypayrent,             # Independent variable
+    income_level = imputed_povgroup3,               # Confounder: income level
+    age_group = agegroup6,                          # Confounder: age group
+    employment_status = emp3,               # Confounder: employment status
+    health_insurance_status = insuredgateway20      # Confounder: health insurance
+  )
+
+```
+
+### Recoding the variables
+
+```{r}
+chs_data_clean <- chs_data %>%
+  
+  # Recode non_specific_psychological_distress (1 = Yes, 2 = No)
+  mutate(
+    non_specific_psychological_distress = case_when(
+      non_specific_psychological_distress == 1 ~ 1,
+      non_specific_psychological_distress == 2 ~ 0,
+      TRUE ~ NA_real_
+    ),
+    non_specific_psychological_distress = factor(non_specific_psychological_distress, 
+                                                 levels = c(0, 1), 
+                                                 labels = c("No", "Yes"))
+  ) %>%
+  
+  # Recode housing_instability (1 = Yes, 2 = No)
+  mutate(
+    housing_instability = case_when(
+      housing_instability == 1 ~ 1,
+      housing_instability == 2 ~ 0,
+      TRUE ~ NA_real_
+    ),
+    housing_instability = factor(housing_instability, 
+                                 levels = c(0, 1), 
+                                 labels = c("No", "Yes"))
+  ) %>%
+  
+  # Recode income_level (categorical variable based on FPL)
+  mutate(
+    income_level = case_when(
+      income_level == 1 ~ 1,
+      income_level == 2 ~ 2,
+      income_level == 3 ~ 3,
+      TRUE ~ NA_real_
+    ),
+    income_level = factor(income_level, 
+                          levels = c(1, 2, 3), 
+                          labels = c("Low Income", "Moderate Income", "High Income"))
+  ) %>%
+  
+  # Recode age_group (1 = 18-24, 2 = 25-29, 3 = 30-44, 4 = 45-64, 5 = 65-74, 6 = 75+)
+  mutate(
+    age_group = case_when(
+      age_group == 1 ~ 1,
+      age_group == 2 ~ 2,
+      age_group == 3 ~ 3,
+      age_group == 4 ~ 4,
+      age_group == 5 ~ 5,
+      age_group == 6 ~ 6,
+      TRUE ~ NA_real_
+    ),
+    age_group = factor(age_group, 
+                       levels = c(1, 2, 3, 4, 5, 6), 
+                       labels = c("18-24", "25-29", "30-44", "45-64", "65-74", "75+"))
+  ) %>%
+  
+  # Recode employment_status (1 = Employed, 2 = Unemployed, 3 = Not in labor force)
+  mutate(
+    employment_status = case_when(
+      employment_status == 1 ~ 1,
+      employment_status == 2 ~ 2,
+      employment_status == 3 ~ 3,
+      TRUE ~ NA_real_
+    ),
+    employment_status = factor(employment_status, 
+                               levels = c(1, 2, 3), 
+                               labels = c("Employed", "Unemployed", "Not in labor force"))
+  ) %>%
+  
+  # Recode health_insurance_status (1 = Yes, 2 = No)
+  mutate(
+    health_insurance_status = case_when(
+      health_insurance_status == 1 ~ 1,
+      health_insurance_status == 2 ~ 0,
+      TRUE ~ NA_real_
+    ),
+    health_insurance_status = factor(health_insurance_status, 
+                                     levels = c(0, 1), 
+                                     labels = c("No", "Yes"))
+  )
+
+```
+
+### Addressing missing data
+
+We assessed the missing data patterns in the data-set using the `md.pattern()` function from the `mice` package. This provided a summary of missing and complete cases across all variables. A visualization of missing data was generated to identify variables with the highest number of missing observations.
+
+```{r}
+
+# Load the library
+library(mice)
+
+# Check missing data patterns
+md.pattern(chs_data_clean, rotate.names = TRUE)
+```
+
+Figure 2:
+
+**Interpretation**:
+
+As shown in Figure 2 above, the data pattern reveals that 8,604 rows (observations) are complete, with no missing values across all variables. However, a small subset of rows has missing values, with **housing instability** and **health insurance status** showing the most frequent missingness. Specifically, there are 88 total missing values distributed across multiple patterns, with some rows missing up to three variables. These findings suggest that while the majority of the dataset is complete, missing data could impact the analysis, particularly for variables with higher levels of missingness. Since, missing data is a small fraction and likely Missing Completely at Random (MCAR), we conducted a listwise deletion.
+
+### Handling Missing Values Listwise Deletion
+
+```{r}
+ #Drop observations with missing data on income_level 
+  ex1 <- chs_data_clean %>%
+  drop_na(income_level) # 8781
+  
+
+```
+
+```{r}
+ #Drop observations with missing data on housing_instability 
+  ex2 <- ex1 %>%
+  drop_na(housing_instability ) # 8695
+  
+ 
+```
+
+```{r}
+#Drop observations with missing data on age_group 
+  ex3 <- ex2 %>%
+  drop_na(age_group ) # 8683
+```
+
+```{r}
+ #Drop observations with missing data on employment_status 
+  ex4 <- ex3 %>%
+  drop_na(employment_status ) # 8628
+```
+
+```{r}
+#Drop observations with missing data on health_insurance_status 
+  ex5 <- ex4 %>%
+  drop_na(health_insurance_status ) # 8604
+  
+  #assigning ex5 dataframe a proper name
+  chs_data_analysis <- ex5
+```
+
+Figure 1 - Listwise deletion flow chart
+
+```{r}
+library(DiagrammeR)
+
+grViz("
+digraph flowchart {
+
+  # Set global node properties
+  node [fontname = Helvetica, shape = rectangle, fontsize = 12, width = 4, height = 0.6]
+
+  # Define nodes with concise labels
+  node1 [label = 'Starting records: n = 8,781']
+  node2 [label = 'Excluding missing income_level: n = 8,695']
+  node3 [label = 'Excluding missing housing_instability: n = 8,683']
+  node4 [label = 'Excluding missing age_group: n = 8,628']
+  node5 [label = 'Excluding missing employment_status: n = 8,604']
+
+  # Create edges to show flow
+  node1 -> node2 -> node3 -> node4 -> node5
+}
+")
+
+```
+
+**Interpretation**
+
+The dataset initially included 8,781 records. After sequentially excluding records with missing values for key variables, including income level (86 excluded), housing instability (12 excluded), age group (55 excluded), and employment status (24 excluded), a total of **177 cases** were dropped. The final sample size was reduced to 8,604 complete records, ensuring that all analyses were conducted on observations with complete data for the selected variables.
+
+#### Let's make sure we have enough cases in each exposure/outcome category, we are adding other potential variables we will use. If any strata have \<10 counts, we may need to regroup.
+
+```{r}
+
+# Create a contingency table to check counts in each strata
+table(chs_data_analysis$non_specific_psychological_distress, chs_data_analysis$housing_instability,chs_data_analysis$age_group)
+
+```
+
+### Combining Age Groups
+
+```{r}
+chs_data_analysis <- chs_data_analysis %>%
+mutate(
+  age_group_combined = case_when(
+    age_group %in% c("18-24", "25-29") ~ "18-29",
+    age_group == "30-44" ~ "30-44",
+    age_group == "45-64" ~ "45-64",
+    age_group %in% c("65-74", "75+") ~ "65+",
+    is.na(age_group) ~ NA_character_  # Explicitly handle NAs
+  ),
+  age_group_combined = factor(
+    age_group_combined,
+    levels = c("18-29", "30-44", "45-64", "65+")
+  )
+)%>%
+  select(-age_group) %>%               # Remove the original age_group column
+  rename(age_group = age_group_combined) # Rename age_group_combined to age_group
+
+
+```
+
+**Interpretation**
+
+We have some low counts under the age groups of 18-24 and above 75 years which will affect the accurancy of our models. Hence, we will combine the ages to have only 4 groups as follows (18-29, 30-44,45-64 and 65+).
+
+```{r}
+# Create Table 1 stratified by housing_instability and sex
+
+table1(
+  ~ age_group + housing_instability + employment_status + income_level + health_insurance_status |non_specific_psychological_distress
+    , data = chs_data_analysis)
+
+
+```
+
+Interpretation
+
+The table summarizes demographic and socio-economic characteristics of participants stratified by psychological distress. Adults aged 45-64 comprised the largest age group across both distressed and non-distressed individuals, while housing instability was more prevalent among those with psychological distress (30.9% vs. 14.8%). Participants experiencing psychological distress were more likely to be unemployed or not in the labor force (62.9%) and tobe in a Low income category (59.5%). Most participants, regardless of distress, had health insurance coverage, with 89.8% insured overall.
+
+### Descriptive Analysis
+
+```{r}
+library(ggplot2)
+
+# Bar chart for age groups
+ggplot(chs_data_analysis, aes(x = age_group)) +
+  geom_bar(fill = "skyblue") +
+  labs(title = "Distribution of Age Groups", x = "Age Group", y = "Count") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+```
+
+### Binomial Logistic Regression
+
+#### Run a univariable (unadjusted) logistic model for bmi as a continuous variable. Interpret the log odds and the OR.
+
+```{r}
+
+model1<- glm(non_specific_psychological_distress ~ housing_instability, data=chs_data_analysis, family="binomial")
+summary(model1) # get log results
+
+
+myoutput1 <- odds.n.ends(model1) # get OR results (and more!) 
+myoutput1
+```
+
+**Based model Interpretation:**
+
+The odds of experiencing non-specific psychological distress among individuals with housing instability are **2.58 times higher** compared to those without housing instability (OR = 2.58, 95% CI [2.11, 3.14]).
+
+#### Adding and adjust for other covariates
+
+```{r}
+model2 <- glm(
+  non_specific_psychological_distress ~ housing_instability + age_group + income_level + employment_status + health_insurance_status,
+  family = binomial,
+  data = chs_data_analysis
+)
+summary(model2)
+
+myoutput2 <-odds.n.ends(model2) # get OR results
+myoutput2
+```
+
+#### **Interpretation: Model2 adjusting for other variables**
+
+The odds of experiencing non-specific psychological distress among individuals with housing instability are 2.26 times higher compared to those without housing instability (OR = 2.26, 95% CI [1.83, 2.80]). Individuals aged 65 and older are 53% less likely to experience psychological distress compared to those aged 18–29 (OR = 0.47, 95% CI [0.34, 0.64]). Moderate-income and high-income earners are 34% less likely to experience psychological distress compared to low-income earners (Moderate Income: OR = 0.66, 95% CI [0.50, 0.86]; High Income: OR = 0.65, 95% CI [0.52, 0.81]). Unemployed individuals are 1.64 times more likely, and those not in the labor force are 2.43 times more likely to report psychological distress compared to those employed (Unemployed: OR = 1.64, 95% CI [1.25, 2.14]; Not in labor force: OR = 2.43, 95% CI [1.93, 3.05]).
+
+#### Summarizing the results using a Forest plot
+
+```{r}
+# Load necessary library
+library(ggplot2)
+
+# Create a data frame with the data
+data <- data.frame(
+  Predictor = c(
+    "Housing Instability (Yes)",
+    "Age Group (30-44)",
+    "Age Group (45-64)",
+    "Age Group (65+)",
+    "Income Level (Moderate)",
+    "Income Level (High)",
+    "Employment (Unemployed)",
+    "Employment (Not in labor force)",
+    "Health Insurance (Yes)"
+  ),
+  OR = c(
+    2.2637, 0.8699, 0.7943, 0.4656, 0.6599, 0.6498, 1.6373, 2.4299, 1.3617
+  ),
+  Lower_CI = c(
+    1.8268, 0.6621, 0.6128, 0.3399, 0.4975, 0.5178, 1.2454, 1.9333, 1.0082
+  ),
+  Upper_CI = c(
+    2.7952, 1.1471, 1.0347, 0.6374, 0.8640, 0.8123, 2.1390, 3.0545, 1.8758
+  )
+)
+
+# Reorder predictors for better visualization
+data$Predictor <- factor(data$Predictor, levels = rev(data$Predictor))
+
+# Create the forest plot
+ggplot(data, aes(x = OR, y = Predictor)) +
+  geom_point(color = "maroon", size = 3) +
+  geom_errorbarh(aes(xmin = Lower_CI, xmax = Upper_CI), height = 0.2, color = "maroon") +
+  geom_vline(xintercept = 1, linetype = "dashed", color = "cyan") +
+  labs(
+    title = "Adjusted Odds Ratios for Predictors of \n Non-Specific Psychological Distress",
+    x = "Odds Ratio (OR)",
+    y = ""
+  ) +
+  theme_minimal() +
+  theme(
+    axis.title.y = element_blank(),
+    axis.text.y = element_text(size = 10),
+    axis.text.x = element_text(size = 10)
+  )
+
+```
+
+**Interpretation**
+
+The forest plot shows the adjusted odds ratios for predictors of non-specific psychological distress. Housing instability and being unemployed or not in the labor force are associated with significantly higher odds of distress, while being older (65+ years) and having a higher income are associated with lower odds of distress.
+
+### Model Diagnostic: Testing Assumptions
+
+Since both the predictor (housing instability) and the outcome (non-specific psychological distress) are categorical variables, testing for linear relationship between the log-odds is mot applicable. Hence, I proceed to test for goodness-of-fit of the model using the Hosmer-Lemeshow test.
+
+-   **Look at assumptions of multicollinearity using the vif function from the car package**
+
+    ```{r}
+    vif(model2) # another way from the jtools package 
+    summ(model2, vifs = TRUE)
+    ```
+
+#### Interpretation: multicollinearity
+
+All values GVIF are well below 2 with a VIF value of \<5. These results indicate that the independent variables in this model are not highly correlated with each other, supporting the assumption of no significant multicollinearity.
+
+-   **Looking for influential observations using Cook's distance. First we will plot Cook's distance.**
+
+```{r}
+# Plot Cooks's distance
+plot(model2, which = 4, id.n = 3, col="red") # which = 4 gives Cook's distance calculations (see https://stat.ethz.ch/R-manual/R-patched/library/stats/html/plot.lm.html)
+abline(h=1, col="red", lty=2)  # Add a threshold line
+```
+
+-   **Cook's D calculations for each observation and some other stats**
+
+    Using threshold of cook's distance cutoff of 1
+
+```{r}
+model2.data <- augment(model2) %>%  
+  mutate(index = 1:n()) 
+
+head(model2.data)
+
+```
+
+```{r}
+cutoff <- 1
+
+Chs_model2_small <- model2.data %>% # excludes observations
+  filter(.cooksd < cutoff)
+
+nrow(Chs_model2_small)/nrow(chs_data_analysis) # check percent kept
+```
+
+**Interpretation Cook's Distances:**
+
+Based on the cook's distance cutoff of 1, there are no influential observations in the data. Hence, all the cases will be maintained.
+
+-   **Lets use model4 for model fit assessment**
+
+    ```{r}
+    # Various pseudo R squares, log likelihood, deviance, AIC, BIC
+    blr_model_fit_stats(model2)
+
+    # Log-Lik: A better model fit is one with a higher Log-Lik
+
+    # Hosmer lemeshow goodness of fit test: a significant p value indicates a bad fit
+    blr_test_hosmer_lemeshow(model2)
+
+    ```
+
+    **Interpretation**: Model fits
+
+    The model fits the data well, as the predictors significantly improve it compared to the intercept-only model LR(9) =183.34 , P \< .001). However, the model explains only a small portion of the variance R^2^=0.048). The Hosmer-Lemeshow test (P=0.232) shows the predicted values align closely with the observed data, indicating the model is a good fit.
+
+-   **Compare the full model to the reduced model with the lrtest function that compares log-likelihoods**.
+
+```{r}
+# likelihood ratio test: compare two nested models
+lrtest(model1, model2)
+```
+
+#### Interpretation: Likelihood ratio test
+
+Based on the likelihood ratio test, adding age group, income level, employment status, and health insurance status significantly improves the model fit compared to housing instability alone (χ2(8)=106.44, p\<.001). This suggests that the additional variables contribute meaningfully to explaining non-specific psychological distress.
+
+```{r}
+odds.n.ends(model2, rocPlot = TRUE, predProbPlot = TRUE)
+```
+
+**interpretation**:
+
+The ROC curve shows an AUC (Area Under the Curve) of 0.67, indicating a moderate ability of the model to discriminate between individuals with and without non-specific psychological distress. The specificity of the model is 1.00, meaning it correctly identifies all cases without psychological distress, but the sensitivity is 0.00, indicating it fails to identify cases with psychological distress. Despite the high overall accuracy of 94.2%, the model's performance in identifying positive cases is poor, limiting its practical utility.
+
+### Study Results
